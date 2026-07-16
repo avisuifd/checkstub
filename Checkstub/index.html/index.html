@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Checkstub</title>
+<style>
+  :root{
+    --paper:#F3F4F1;
+    --paper-raised:#FFFFFF;
+    --ink:#1C2321;
+    --sub:#6B6F68;
+    --line:#DBDCD6;
+    --ok:#2F6F4E;
+    --ok-bg:#E7F1EA;
+    --bad:#A13D2C;
+    --bad-bg:#F7E9E6;
+    --mono: ui-monospace, "SF Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  }
+  body[data-theme="dark"]{
+    --paper:#181A17;
+    --paper-raised:#222420;
+    --ink:#E9EAE5;
+    --sub:#8D9088;
+    --line:#3A3C36;
+    --ok:#5FAE81;
+    --ok-bg:#1E3327;
+    --bad:#D97A66;
+    --bad-bg:#3A2320;
+  }
+  body{transition: background .15s, color .15s;}
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family: var(--mono); font-size:13px; line-height:1.45;
+    padding:28px 32px 60px;
+  }
+  header{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:20px; padding-bottom:14px; border-bottom:2px solid var(--ink);
+    flex-wrap:wrap; gap:10px;
+  }
+  header h1{
+    font-family:var(--serif); font-size:22px; font-weight:700; margin:0;
+    letter-spacing:.2px;
+  }
+  header .sub{color:var(--sub); font-size:12px; margin-top:2px;}
+  nav.tabs{display:flex; gap:2px;}
+  nav.tabs button{
+    font-family:var(--mono); font-size:12px; letter-spacing:.03em; text-transform:uppercase;
+    background:none; border:none; padding:8px 14px; color:var(--sub); cursor:pointer;
+    border-bottom:2px solid transparent; margin-bottom:-16px;
+  }
+  nav.tabs button.active{color:var(--ink); border-bottom-color:var(--ink); font-weight:700;}
+  nav.tabs button:hover{color:var(--ink);}
+
+  button.btn{
+    font-family:var(--mono); font-size:12px; background:var(--paper-raised); color:var(--ink);
+    border:1px solid var(--ink); padding:6px 12px; cursor:pointer;
+  }
+  button.btn:hover{background:var(--ink); color:var(--paper-raised);}
+  button.btn.ghost{border-color:var(--line); color:var(--sub);}
+  button.btn.ghost:hover{background:#eceeea; color:var(--ink);}
+  button.btn.small{padding:3px 8px; font-size:11px;}
+
+  /* ---------- Upload ---------- */
+  #drop{
+    border:1px dashed #b7b9b1; padding:56px 20px; text-align:center;
+    color:var(--sub); cursor:pointer; margin-bottom:16px; background:var(--paper-raised);
+    transition:border-color .15s, color .15s;
+  }
+  #drop:hover, #drop.drag{border-color:var(--ink); color:var(--ink);}
+  #fileInput{display:none;}
+  #status{color:var(--sub); margin-bottom:12px;}
+  #err{color:var(--bad); margin-bottom:12px; white-space:pre-wrap;}
+
+  /* ---------- Reconcile layout ---------- */
+  .recon-grid{display:grid; grid-template-columns: 1fr 260px; gap:24px; align-items:start;}
+  @media (max-width: 860px){ .recon-grid{grid-template-columns:1fr;} }
+
+  .statbar{
+    display:flex; gap:20px; align-items:center; flex-wrap:wrap;
+    margin-bottom:14px; color:var(--sub);
+  }
+  .statbar b{color:var(--ink); font-weight:700;}
+
+  /* calculator-style display */
+  #entryWrap{margin-bottom:16px;}
+  #priceDisplay{
+    display:inline-flex; align-items:center; gap:2px;
+    font-family:var(--mono); font-size:34px; font-weight:600;
+    background:var(--paper-raised); border:2px solid var(--ink);
+    padding:10px 18px; min-width:220px; letter-spacing:.5px;
+    outline:none; cursor:text;
+  }
+  #priceDisplay.empty{color:#B7B9B1;}
+  #priceDisplay.good{border-color:var(--ok); color:var(--ok); background:var(--ok-bg);}
+  #priceDisplay.bad{border-color:var(--bad); color:var(--bad); background:var(--bad-bg);}
+  #priceDisplay .cursor{
+    display:inline-block; width:2px; height:28px; background:var(--ink);
+    margin-left:2px; animation:blink 1s step-end infinite;
+  }
+  #priceDisplay.good .cursor, #priceDisplay.bad .cursor{display:none;}
+  @keyframes blink{50%{opacity:0;}}
+  #entryHint{color:var(--sub); font-size:11px; margin-top:6px;}
+
+  #candidates{margin:0 0 14px 0;}
+  #candidates .cand-label{color:var(--sub); font-size:11px; margin-bottom:6px;}
+  #candidates button{
+    display:block; width:100%; text-align:left; margin-bottom:4px;
+    border-color:var(--line); background:var(--paper-raised);
+  }
+
+  table{width:100%; border-collapse:collapse; background:var(--paper-raised);}
+  th,td{ text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th{color:var(--sub); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
+     border-bottom:2px solid var(--ink);}
+  td.desc{white-space:normal; max-width:380px;}
+  td.amt{text-align:right; font-variant-numeric:tabular-nums;}
+  tr.matched{color:#A6A8A0;}
+  tr.matched td.amt{text-decoration:line-through;}
+  tr.flash{background:#fbf6d9;}
+  tbody tr{cursor:pointer;}
+  tbody tr:hover td{background:#EEEFEA;}
+  .tag{font-size:10px; padding:1px 6px; border:1px solid var(--line); color:var(--sub);}
+  .tag.credit{border-color:var(--ok); color:var(--ok);}
+
+  /* tally tape (signature element) */
+  .tape-title{font-family:var(--serif); font-size:13px; font-weight:700; margin-bottom:8px;}
+  .tape{ background:var(--paper-raised); border:1px solid var(--line); padding:10px 12px; max-height:520px; overflow-y:auto;}
+  .tape .empty{color:var(--sub); font-size:11.5px;}
+  .stub{
+    padding:6px 4px; border-bottom:1px dashed var(--line); font-size:12px;
+    display:flex; justify-content:space-between; gap:8px;
+  }
+  .stub:nth-child(even){transform:rotate(-0.4deg);}
+  .stub:nth-child(odd){transform:rotate(0.3deg);}
+  .stub .mark{font-weight:700;}
+  .stub.hit .mark{color:var(--ok);}
+  .stub.miss .mark{color:var(--bad);}
+  .stub .desc{color:var(--sub); font-size:10.5px; margin-top:2px; flex-basis:100%;}
+
+  /* ---------- History ---------- */
+  #historyView .session{
+    background:var(--paper-raised); border:1px solid var(--line); margin-bottom:10px;
+  }
+  #historyView .session-head{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 14px; cursor:pointer; flex-wrap:wrap;
+  }
+  #historyView .session-head:hover{background:#EEEFEA;}
+  #historyView .session-title{font-family:var(--serif); font-weight:700; font-size:14px;}
+  #historyView .session-meta{color:var(--sub); font-size:11px;}
+  #historyView .session-detail{display:none; border-top:1px solid var(--line);}
+  #historyView .session.open .session-detail{display:block;}
+  #historyView .session-actions{display:flex; gap:6px;}
+  #historyEmpty{color:var(--sub);}
+</style>
+</head>
+<body data-theme="light">
+
+<header>
+  <div>
+    <h1>Checkstub</h1>
+    <div class="sub">statement reconciliation</div>
+  </div>
+  <nav class="tabs">
+    <button id="tabReconBtn" class="active">Reconcile</button>
+    <button id="tabHistBtn">History</button>
+    <button id="soundToggleBtn" title="toggle sound">🔊</button>
+    <button id="themeToggleBtn" title="toggle dark mode">🌙</button>
+  </nav>
+</header>
+
+<!-- RECONCILE TAB -->
+<div id="reconView">
+
+  <div id="uploadView">
+    <div id="drop">
+      Click or drop a bank statement — one PDF, or multiple photos for a multi-page statement
+      <input id="fileInput" type="file" accept="image/*,application/pdf" multiple>
+    </div>
+    <div id="status"></div>
+    <div id="err"></div>
+  </div>
+
+  <div id="workView" style="display:none;">
+    <div class="statbar">
+      <div><b id="matchedCount">0</b> / <span id="totalCount">0</span> matched</div>
+      <div>remaining: <b id="remainingSum">$0.00</b></div>
+      <label style="color:var(--sub); font-size:11px; display:flex; align-items:center; gap:6px;">
+        statement month
+        <input type="month" id="statementDateInput" class="btn ghost small" style="cursor:default;">
+      </label>
+      <label style="color:var(--sub); font-size:11px; display:flex; align-items:center; gap:6px;">
+        account
+        <input type="text" id="accountInput" list="accountList" placeholder="e.g. Chase Checking"
+          class="btn ghost small" style="cursor:text; width:150px;">
+        <datalist id="accountList"></datalist>
+      </label>
+      <button class="btn ghost small" id="saveBtn">Save to history</button>
+      <span id="autosaveStatus" style="color:var(--sub); font-size:11px;"></span>
+      <button class="btn ghost small" id="newStatementBtn">New statement</button>
+    </div>
+
+    <div class="recon-grid">
+      <div>
+        <div id="entryWrap">
+          <div id="priceDisplay" class="empty" tabindex="0">$0.00<span class="cursor"></span></div>
+          <div id="entryHint">type the receipt amount — it matches automatically. backspace to correct, esc to clear.</div>
+        </div>
+        <div id="candidates"></div>
+
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Description</th><th>Amount</th><th>Type</th><th></th></tr>
+          </thead>
+          <tbody id="txBody"></tbody>
+        </table>
+      </div>
+
+      <div>
+        <div class="tape-title">Tape</div>
+        <div class="tape" id="tape"><div class="empty">entries you type will show up here</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY TAB -->
+<div id="historyView" style="display:none;">
+  <div style="margin-bottom:14px; display:flex; gap:8px; flex-wrap:wrap;">
+    <input type="text" id="historyFilter" placeholder="filter by date or filename..."
+      style="font-family:var(--mono); font-size:13px; padding:7px 10px; border:1px solid var(--ink); width:280px; background:var(--paper-raised);">
+    <select id="accountFilter"
+      style="font-family:var(--mono); font-size:13px; padding:7px 10px; border:1px solid var(--ink); background:var(--paper-raised);">
+      <option value="">all accounts</option>
+    </select>
+  </div>
+  <div id="historyEmpty">No saved statements yet.</div>
+  <div id="historyList"></div>
+</div>
+
+<script>
+let transactions = [];
+let sessionLog = []; // {ts, amount, kind:'hit'|'miss', description}
+let pendingCandidates = null;
+let lastFileName = '';
+let currentSessionId = null;
+
+const dropEl = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const statusEl = document.getElementById('status');
+const errEl = document.getElementById('err');
+const uploadView = document.getElementById('uploadView');
+const workView = document.getElementById('workView');
+const priceDisplay = document.getElementById('priceDisplay');
+const candidatesEl = document.getElementById('candidates');
+const txBody = document.getElementById('txBody');
+const tapeEl = document.getElementById('tape');
+
+const reconView = document.getElementById('reconView');
+const historyView = document.getElementById('historyView');
+const tabReconBtn = document.getElementById('tabReconBtn');
+const tabHistBtn = document.getElementById('tabHistBtn');
+
+/* ---------------- Sound ---------------- */
+let soundEnabled = true;
+let audioCtx = null;
+const soundToggleBtn = document.getElementById('soundToggleBtn');
+
+(async function loadSoundPref(){
+  try{
+    const pref = await window.storage.get('sound-enabled', false);
+    if (pref && pref.value === 'false') soundEnabled = false;
+  }catch(e){ /* default: on */ }
+  soundToggleBtn.textContent = soundEnabled ? '🔊' : '🔇';
+})();
+
+soundToggleBtn.addEventListener('click', async () => {
+  soundEnabled = !soundEnabled;
+  soundToggleBtn.textContent = soundEnabled ? '🔊' : '🔇';
+  try{ await window.storage.set('sound-enabled', String(soundEnabled), false); }catch(e){}
+});
+
+/* ---------------- Theme ---------------- */
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+
+(async function loadThemePref(){
+  let dark = false;
+  try{
+    const pref = await window.storage.get('theme-dark', false);
+    if (pref && pref.value === 'true') dark = true;
+  }catch(e){ /* default: light */ }
+  document.body.dataset.theme = dark ? 'dark' : 'light';
+  themeToggleBtn.textContent = dark ? '☀️' : '🌙';
+})();
+
+themeToggleBtn.addEventListener('click', async () => {
+  const dark = document.body.dataset.theme !== 'dark';
+  document.body.dataset.theme = dark ? 'dark' : 'light';
+  themeToggleBtn.textContent = dark ? '☀️' : '🌙';
+  try{ await window.storage.set('theme-dark', String(dark), false); }catch(e){}
+});
+
+function tone(freqs, dur, type){
+  if (!soundEnabled) return;
+  try{
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    freqs.forEach((f, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = f;
+      const start = t0 + i * dur;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.045, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(start);
+      osc.stop(start + dur + 0.02);
+    });
+  }catch(e){ /* audio not available, ignore */ }
+}
+
+function playHit(){ tone([480], 0.075, 'sine'); }
+function playMiss(){ tone([260], 0.09, 'sine'); }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && transactions.length){
+    saveCurrentToHistory(true);
+  }
+});
+window.addEventListener('beforeunload', () => {
+  if (transactions.length) saveCurrentToHistory(true);
+});
+
+/* ---------------- Tabs ---------------- */
+tabReconBtn.addEventListener('click', () => switchTab('recon'));
+tabHistBtn.addEventListener('click', () => switchTab('history'));
+
+function switchTab(which){
+  if (which === 'recon'){
+    reconView.style.display = 'block';
+    historyView.style.display = 'none';
+    tabReconBtn.classList.add('active');
+    tabHistBtn.classList.remove('active');
+    priceDisplay.focus();
+  } else {
+    reconView.style.display = 'none';
+    historyView.style.display = 'block';
+    tabReconBtn.classList.remove('active');
+    tabHistBtn.classList.add('active');
+    loadHistory();
+  }
+}
+
+/* ---------------- Upload ---------------- */
+dropEl.addEventListener('click', () => fileInput.click());
+dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('drag'); });
+dropEl.addEventListener('dragleave', () => dropEl.classList.remove('drag'));
+dropEl.addEventListener('drop', e => {
+  e.preventDefault(); dropEl.classList.remove('drag');
+  if (e.dataTransfer.files.length) handleFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFiles(Array.from(e.target.files)); });
+
+const newStatementBtn = document.getElementById('newStatementBtn');
+let newStatementArmed = false;
+newStatementBtn.addEventListener('click', async () => {
+  if (transactions.length && !newStatementArmed){
+    newStatementArmed = true;
+    newStatementBtn.textContent = 'Click again to confirm';
+    setTimeout(() => { newStatementArmed = false; newStatementBtn.textContent = 'New statement'; }, 3000);
+    return;
+  }
+  newStatementArmed = false;
+  newStatementBtn.textContent = 'New statement';
+  resetSession();
+});
+
+document.getElementById('saveBtn').addEventListener('click', () => saveCurrentToHistory(false));
+
+function resetSession(){
+  transactions = []; sessionLog = []; pendingCandidates = null; buffer = '';
+  currentSessionId = null;
+  workView.style.display = 'none';
+  uploadView.style.display = 'block';
+  errEl.textContent = ''; statusEl.textContent = '';
+  fileInput.value = '';
+  renderTape();
+}
+
+function fileToBase64(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Could not read file'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function handleFiles(files){
+  errEl.textContent = '';
+  currentSessionId = null;
+
+  const pdfs = files.filter(f => f.type === 'application/pdf');
+  const images = files.filter(f => f.type !== 'application/pdf');
+
+  if (pdfs.length && images.length){
+    errEl.textContent = 'Please upload either one PDF, or one or more photos — not a mix of both.';
+    return;
+  }
+  if (pdfs.length > 1){
+    errEl.textContent = 'Please upload only one PDF at a time.';
+    return;
+  }
+
+  lastFileName = pdfs.length ? pdfs[0].name : (files.length > 1 ? `${files.length} photos (${files[0].name}...)` : files[0].name);
+  statusEl.textContent = files.length > 1 ? `Reading ${files.length} pages...` : 'Reading file...';
+
+  try{
+    let blocks;
+    if (pdfs.length){
+      const base64 = await fileToBase64(pdfs[0]);
+      blocks = [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }];
+    } else {
+      blocks = await Promise.all(images.map(async f => ({
+        type: 'image',
+        source: { type: 'base64', media_type: f.type || 'image/jpeg', data: await fileToBase64(f) }
+      })));
+    }
+
+    statusEl.textContent = 'Extracting transactions... this can take a bit for multi-page statements.';
+
+    const prompt = `You are extracting line items from a bank or credit card statement. Look at every page/image provided${images.length > 1 ? ' — they are pages of the SAME statement, in order' : ''}.
+Return ONLY a raw JSON array, no markdown fences, no commentary, no explanation before or after.
+Each element: {"date": "<as shown on statement>", "description": "<as shown>", "amount": <positive number, no $ or commas>, "type": "charge" or "credit"}.
+Classify strictly by the sign printed on the statement: if the amount is shown with a minus sign (-) or in parentheses, it is "credit". If it has no negative sign, it is "charge" — regardless of what the description says.
+Include every line item with a dollar amount across all pages/images, with no duplicates. Do NOT include running balances, statement summaries, or totals rows as items.
+If you cannot read the document, return an empty array [].`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: [...blocks, { type: 'text', text: prompt }] }]
+      })
+    });
+
+    const data = await response.json();
+    const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    let cleaned = textBlocks.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+
+    let parsed;
+    try{ parsed = JSON.parse(cleaned); }
+    catch(e){ throw new Error('Could not parse the extracted data. Raw response:\n' + textBlocks.slice(0, 800)); }
+
+    if (!Array.isArray(parsed) || parsed.length === 0){
+      throw new Error('No transactions were found. Try clearer photos, or make sure all pages were selected.');
+    }
+
+    transactions = parsed.map((t, i) => ({
+      id: i,
+      date: t.date || '',
+      description: t.description || '',
+      amount: Math.abs(parseFloat(t.amount)) || 0,
+      type: t.type === 'credit' ? 'credit' : 'charge',
+      status: 'pending'
+    }));
+    sessionLog = [];
+    buffer = '';
+
+    statusEl.textContent = '';
+    uploadView.style.display = 'none';
+    workView.style.display = 'block';
+    document.getElementById('statementDateInput').value = new Date().toISOString().slice(0, 7);
+    document.getElementById('accountInput').value = '';
+    renderTable(); renderTape(); renderBuffer(); updateStats();
+    priceDisplay.focus();
+    scheduleAutosave();
+
+  }catch(err){
+    statusEl.textContent = '';
+    errEl.textContent = 'Error: ' + err.message;
+  }
+}
+
+/* ---------------- Table ---------------- */
+function renderTable(){
+  txBody.innerHTML = '';
+  transactions.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = t.id;
+    if (t.status === 'matched') tr.classList.add('matched');
+    tr.innerHTML = `
+      <td>${escapeHtml(t.date)}</td>
+      <td class="desc">${escapeHtml(t.description)}</td>
+      <td class="amt">$${t.amount.toFixed(2)}</td>
+      <td><span class="tag ${t.type === 'credit' ? 'credit' : ''}">${t.type}</span></td>
+      <td>${t.status === 'matched' ? '✓' : ''}</td>
+    `;
+    tr.addEventListener('click', () => {
+      t.status = t.status === 'matched' ? 'pending' : 'matched';
+      renderTable(); updateStats(); scheduleAutosave();
+    });
+    txBody.appendChild(tr);
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function updateStats(){
+  const matched = transactions.filter(t => t.status === 'matched').length;
+  document.getElementById('matchedCount').textContent = matched;
+  document.getElementById('totalCount').textContent = transactions.length;
+  const remaining = transactions.filter(t => t.status === 'pending').reduce((s, t) => s + t.amount, 0);
+  document.getElementById('remainingSum').textContent = '$' + remaining.toFixed(2);
+}
+
+function flashRow(id){
+  const row = txBody.querySelector(`tr[data-id="${id}"]`);
+  if (!row) return;
+  row.classList.add('flash');
+  setTimeout(() => row.classList.remove('flash'), 500);
+}
+
+/* ---------------- Cents-first entry (exact match, no autofill) ---------------- */
+let buffer = ''; // raw digits typed, e.g. "5183" -> $51.83
+let matchTimer = null;
+
+function clearAllEntryTimers(){
+  clearTimeout(matchTimer);
+  matchTimer = null;
+}
+
+function currentAmount(){
+  if (!buffer) return 0;
+  return parseInt(buffer, 10) / 100;
+}
+
+function renderBuffer(){
+  priceDisplay.classList.remove('good', 'bad');
+  priceDisplay.classList.toggle('empty', buffer === '');
+  priceDisplay.innerHTML = '$' + currentAmount().toFixed(2) + '<span class="cursor"></span>';
+}
+
+priceDisplay.addEventListener('click', () => priceDisplay.focus());
+
+priceDisplay.addEventListener('keydown', e => {
+  // disambiguation shortcuts take priority
+  if (pendingCandidates && (e.key === 'ArrowDown' || e.key === 'ArrowUp')){
+    e.preventDefault();
+    moveCandidateHighlight(e.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
+  if (pendingCandidates && e.key === 'Enter'){
+    e.preventDefault();
+    const idx = candidatesEl.querySelector('.highlight');
+    if (idx) confirmCandidate(parseInt(idx.dataset.id, 10));
+    return;
+  }
+
+  if (e.key >= '0' && e.key <= '9'){
+    e.preventDefault();
+    if (!audioCtx){ try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+    else if (audioCtx.state === 'suspended'){ audioCtx.resume(); }
+    if (buffer.length < 8) buffer += e.key;
+    onBufferChange();
+    return;
+  }
+  if (e.key === 'Backspace'){
+    e.preventDefault();
+    buffer = buffer.slice(0, -1);
+    onBufferChange();
+    return;
+  }
+  if (e.key === 'Escape'){
+    e.preventDefault();
+    buffer = '';
+    onBufferChange();
+    return;
+  }
+  if (e.key === 'Enter'){
+    e.preventDefault();
+    forceResolve();
+    return;
+  }
+});
+
+function onBufferChange(){
+  clearAllEntryTimers();
+  clearCandidates();
+  renderBuffer();
+  if (!buffer) return;
+  matchTimer = setTimeout(attemptMatch, 550);
+}
+
+function attemptMatch(){
+  const amount = currentAmount();
+  const matches = transactions.filter(t => t.status === 'pending' && Math.abs(t.amount - amount) < 0.005);
+  if (matches.length === 1) finalizeMatch(matches[0]);
+  else if (matches.length === 0) registerMiss();
+  else showPicker(matches);
+}
+
+function finalizeMatch(candidate){
+  candidate.status = 'matched';
+  logStub(candidate.amount, 'hit', candidate.description);
+  flashRow(candidate.id);
+  priceDisplay.classList.add('good');
+  clearAllEntryTimers();
+  clearCandidates();
+  setTimeout(() => { buffer = ''; renderBuffer(); }, 300);
+  renderTable(); updateStats();
+}
+
+function registerMiss(){
+  const amount = currentAmount();
+  logStub(amount, 'miss', null);
+  priceDisplay.classList.add('bad');
+  clearAllEntryTimers();
+  setTimeout(() => { buffer = ''; renderBuffer(); }, 450);
+}
+
+function clearCandidates(){
+  pendingCandidates = null;
+  candidatesEl.innerHTML = '';
+}
+
+function showPicker(matches){
+  pendingCandidates = matches;
+  candidatesEl.innerHTML = '<div class="cand-label">' + matches.length + ' transactions match this amount — click one, or use ↑↓ + Enter</div>';
+  matches.forEach((c, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn ghost';
+    btn.dataset.id = c.id;
+    if (idx === 0) btn.classList.add('highlight');
+    btn.textContent = `${c.date} — ${c.description} — $${c.amount.toFixed(2)}`;
+    btn.addEventListener('click', () => confirmCandidate(c.id));
+    candidatesEl.appendChild(btn);
+  });
+}
+
+function moveCandidateHighlight(dir){
+  const btns = Array.from(candidatesEl.querySelectorAll('button'));
+  if (!btns.length) return;
+  let idx = btns.findIndex(b => b.classList.contains('highlight'));
+  btns[idx]?.classList.remove('highlight');
+  idx = (idx + dir + btns.length) % btns.length;
+  btns[idx].classList.add('highlight');
+}
+
+function confirmCandidate(id){
+  const t = transactions.find(x => x.id === id);
+  if (t){
+    t.status = 'matched';
+    logStub(t.amount, 'hit', t.description);
+    flashRow(id);
+  }
+  clearAllEntryTimers();
+  clearCandidates();
+  buffer = '';
+  renderBuffer();
+  renderTable(); updateStats();
+}
+
+function forceResolve(){
+  clearAllEntryTimers();
+  if (!buffer) return;
+  attemptMatch();
+}
+
+/* ---------------- Tape ---------------- */
+function logStub(amount, kind, description){
+  sessionLog.unshift({ ts: Date.now(), amount, kind, description });
+  renderTape();
+  if (kind === 'hit') playHit(); else playMiss();
+  scheduleAutosave();
+}
+
+function renderTape(){
+  if (!sessionLog.length){
+    tapeEl.innerHTML = '<div class="empty">entries you type will show up here</div>';
+    return;
+  }
+  tapeEl.innerHTML = sessionLog.map(s => `
+    <div class="stub ${s.kind}">
+      <span>$${s.amount.toFixed(2)}</span>
+      <span class="mark">${s.kind === 'hit' ? '✓ matched' : '✗ no match'}</span>
+      ${s.description ? `<span class="desc">${escapeHtml(s.description)}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+/* ---------------- History (persisted) ---------------- */
+async function saveCurrentToHistory(silent){
+  if (!transactions.length){ return; }
+  const id = currentSessionId || ('sess_' + Date.now());
+  const matched = transactions.filter(t => t.status === 'matched').length;
+  const remaining = transactions.filter(t => t.status === 'pending').reduce((s, t) => s + t.amount, 0);
+  const statementDate = document.getElementById('statementDateInput').value || new Date().toISOString().slice(0, 7);
+  const account = document.getElementById('accountInput').value.trim();
+  const record = {
+    id, fileName: lastFileName || 'statement', savedAt: new Date().toISOString(), statementDate, account,
+    total: transactions.length, matched, remaining, transactions
+  };
+  try{
+    await window.storage.set('session:' + id, JSON.stringify(record), false);
+    let indexArr = [];
+    try{
+      const idx = await window.storage.get('session-index', false);
+      if (idx && idx.value) indexArr = JSON.parse(idx.value);
+    }catch(e){ indexArr = []; }
+    const summary = { id, fileName: record.fileName, savedAt: record.savedAt, statementDate: record.statementDate, account: record.account, total: record.total, matched: record.matched, remaining: record.remaining };
+    const existingIdx = indexArr.findIndex(s => s.id === id);
+    if (existingIdx >= 0) indexArr[existingIdx] = summary; else indexArr.unshift(summary);
+    await window.storage.set('session-index', JSON.stringify(indexArr), false);
+    currentSessionId = id;
+    statusEl.textContent = '';
+    errEl.textContent = '';
+    if (silent){
+      const s = document.getElementById('autosaveStatus');
+      s.textContent = 'auto-saved ' + new Date().toLocaleTimeString();
+      clearTimeout(s._t);
+      s._t = setTimeout(() => s.textContent = '', 4000);
+    } else {
+      flashSaveButton();
+    }
+  }catch(e){
+    if (!silent) errEl.textContent = 'Could not save to history: ' + e.message;
+  }
+}
+
+let autosaveTimer = null;
+function scheduleAutosave(){
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => saveCurrentToHistory(true), 1200);
+}
+
+function flashSaveButton(){
+  const btn = document.getElementById('saveBtn');
+  const old = btn.textContent;
+  btn.textContent = 'Saved ✓';
+  setTimeout(() => btn.textContent = old, 1200);
+}
+
+let historyIndexCache = [];
+
+async function loadHistory(){
+  const emptyEl = document.getElementById('historyEmpty');
+  let indexArr = [];
+  try{
+    const idx = await window.storage.get('session-index', false);
+    if (idx && idx.value) indexArr = JSON.parse(idx.value);
+  }catch(e){ indexArr = []; }
+
+  indexArr.sort((a, b) => (b.statementDate || '').localeCompare(a.statementDate || ''));
+  historyIndexCache = indexArr;
+  refreshAccountOptions(indexArr);
+
+  if (!indexArr.length){ emptyEl.style.display = 'block'; document.getElementById('historyList').innerHTML=''; return; }
+  emptyEl.style.display = 'none';
+  applyHistoryFilters();
+}
+
+function refreshAccountOptions(indexArr){
+  const accounts = Array.from(new Set(indexArr.map(s => s.account).filter(Boolean))).sort();
+  const datalist = document.getElementById('accountList');
+  datalist.innerHTML = accounts.map(a => `<option value="${escapeHtml(a)}">`).join('');
+  const select = document.getElementById('accountFilter');
+  const current = select.value;
+  select.innerHTML = '<option value="">all accounts</option>' + accounts.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  select.value = accounts.includes(current) ? current : '';
+}
+
+function applyHistoryFilters(){
+  const q = document.getElementById('historyFilter').value.trim().toLowerCase();
+  const acct = document.getElementById('accountFilter').value;
+  const filtered = historyIndexCache.filter(s => {
+    const matchesText = !q || (s.fileName || '').toLowerCase().includes(q) || (s.statementDate || '').includes(q);
+    const matchesAccount = !acct || s.account === acct;
+    return matchesText && matchesAccount;
+  });
+  renderHistoryList(filtered);
+}
+
+document.getElementById('historyFilter').addEventListener('input', applyHistoryFilters);
+document.getElementById('accountFilter').addEventListener('change', applyHistoryFilters);
+
+function formatStatementDate(d){
+  if (!d) return 'Undated';
+  try{ return new Date(d + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
+  catch(e){ return d; }
+}
+
+function renderHistoryList(indexArr){
+  const listEl = document.getElementById('historyList');
+  listEl.innerHTML = '';
+
+  indexArr.forEach(summary => {
+    const div = document.createElement('div');
+    div.className = 'session';
+    div.innerHTML = `
+      <div class="session-head">
+        <div>
+          <div class="session-title">${escapeHtml(formatStatementDate(summary.statementDate))}</div>
+          <div class="session-meta">${summary.account ? escapeHtml(summary.account) + ' — ' : ''}${escapeHtml(summary.fileName)} — ${summary.matched}/${summary.total} matched — $${summary.remaining.toFixed(2)} remaining</div>
+        </div>
+        <div class="session-actions">
+          <button class="btn ghost small" data-action="open" data-id="${summary.id}">open</button>
+          <button class="btn ghost small" data-action="delete" data-id="${summary.id}">delete</button>
+        </div>
+      </div>
+      <div class="session-detail"></div>
+    `;
+    const head = div.querySelector('.session-head');
+    head.addEventListener('click', async (e) => {
+      if (e.target.dataset.action) return;
+      const isOpen = div.classList.contains('open');
+      if (isOpen){ div.classList.remove('open'); return; }
+      div.classList.add('open');
+      const detail = div.querySelector('.session-detail');
+      detail.innerHTML = 'Loading...';
+      try{
+        const full = await window.storage.get('session:' + summary.id, false);
+        const rec = JSON.parse(full.value);
+        detail.innerHTML = renderHistoryTable(rec.transactions);
+      }catch(err){
+        detail.innerHTML = 'Could not load this record.';
+      }
+    });
+    const openBtn = div.querySelector('[data-action="open"]');
+    openBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      openBtn.textContent = 'opening...';
+      try{
+        const full = await window.storage.get('session:' + summary.id, false);
+        const rec = JSON.parse(full.value);
+        loadSessionIntoWorkspace(rec);
+      }catch(err){
+        openBtn.textContent = 'failed — retry';
+      }
+    });
+    const deleteBtn = div.querySelector('[data-action="delete"]');
+    let deleteArmed = false;
+    deleteBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!deleteArmed){
+        deleteArmed = true;
+        deleteBtn.textContent = 'confirm delete?';
+        setTimeout(() => { deleteArmed = false; if (deleteBtn) deleteBtn.textContent = 'delete'; }, 3000);
+        return;
+      }
+      try{
+        await window.storage.delete('session:' + summary.id, false);
+        const idx = await window.storage.get('session-index', false);
+        let arr = idx && idx.value ? JSON.parse(idx.value) : [];
+        arr = arr.filter(s => s.id !== summary.id);
+        await window.storage.set('session-index', JSON.stringify(arr), false);
+        loadHistory();
+      }catch(err){
+        deleteBtn.textContent = 'failed — retry';
+      }
+    });
+    listEl.appendChild(div);
+  });
+}
+
+function loadSessionIntoWorkspace(rec){
+  transactions = (rec.transactions || []).map(t => ({ ...t }));
+  sessionLog = [];
+  buffer = '';
+  pendingCandidates = null;
+  currentSessionId = rec.id;
+  lastFileName = rec.fileName || 'statement';
+
+  uploadView.style.display = 'none';
+  workView.style.display = 'block';
+  document.getElementById('statementDateInput').value = rec.statementDate || new Date().toISOString().slice(0, 7);
+  document.getElementById('accountInput').value = rec.account || '';
+
+  renderTable(); renderTape(); renderBuffer(); updateStats();
+  switchTab('recon');
+}
+
+function renderHistoryTable(txs){
+  const rows = txs.map(t => `
+    <tr class="${t.status === 'matched' ? 'matched' : ''}">
+      <td>${escapeHtml(t.date)}</td>
+      <td class="desc">${escapeHtml(t.description)}</td>
+      <td class="amt">$${t.amount.toFixed(2)}</td>
+      <td><span class="tag ${t.type === 'credit' ? 'credit' : ''}">${t.type}</span></td>
+      <td>${t.status === 'matched' ? '✓' : ''}</td>
+    </tr>
+  `).join('');
+  return `<table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Type</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+renderBuffer();
+</script>
+</body>
+</html>
